@@ -371,14 +371,14 @@ sub BackRestTestCommon_ExecuteRegAll
         $strLine =~ s/$strTestPath/[TEST_PATH]/g;
     }
 
-    $strLine = BackRestTestCommon_ExecuteRegExp($strLine, 'modification-time = MODIFICATION-TIME', 'modification_time = [0-9]+');
+    $strLine = BackRestTestCommon_ExecuteRegExp($strLine, 'MODIFICATION-TIME', 'modification_time = [0-9]+', '[0-9]+$');
 
     $strLine = BackRestTestCommon_ExecuteRegExp($strLine, 'BACKUP-INCR', '[0-9]{8}\-[0-9]{6}F\_[0-9]{8}\-[0-9]{6}I');
     $strLine = BackRestTestCommon_ExecuteRegExp($strLine, 'BACKUP-DIFF', '[0-9]{8}\-[0-9]{6}F\_[0-9]{8}\-[0-9]{6}D');
     $strLine = BackRestTestCommon_ExecuteRegExp($strLine, 'BACKUP-FULL', '[0-9]{8}\-[0-9]{6}F');
 
-    $strLine = BackRestTestCommon_ExecuteRegExp($strLine, 'group = GROUP', 'group = [^ \n,\[\]]+');
-    $strLine = BackRestTestCommon_ExecuteRegExp($strLine, 'user = USER', 'user = [^ \n,\[\]]+');
+    $strLine = BackRestTestCommon_ExecuteRegExp($strLine, 'GROUP', 'group = [^ \n,\[\]]+', '[^ \n,\[\]]+$');
+    $strLine = BackRestTestCommon_ExecuteRegExp($strLine, 'USER', 'user = [^ \n,\[\]]+', '[^ \n,\[\]]+$');
 
     $strLine = BackRestTestCommon_ExecuteRegExp($strLine, 'VERSION', 'version = ' . version_get(), version_get . '$');
     $strLine = BackRestTestCommon_ExecuteRegExp($strLine, 'VERSION', '"version" : ' . version_get(), version_get . '$');
@@ -393,10 +393,6 @@ sub BackRestTestCommon_ExecuteRegAll
                                                 $strTimestampRegExp, false);
     $strLine = BackRestTestCommon_ExecuteRegExp($strLine, 'TIMESTAMP', "\"timestamp-stop\" : \"$strTimestampRegExp\"",
                                                 $strTimestampRegExp, false);
-
-    # $strLine =~ s/"timestamp-copy-start" : "$strTimestampRegExp"/"timestamp-copy-start" : "TIMESTAMP"/g;
-    # $strLine =~ s/"timestamp-start" : "$strTimestampRegExp"/"timestamp-start" : "TIMESTAMP"/g;
-    # $strLine =~ s/"timestamp-stop" : "$strTimestampRegExp"/"timestamp-stop" : "TIMESTAMP"/g;
 
     return $strLine;
 }
@@ -448,11 +444,14 @@ sub BackRestTestCommon_ExecuteEnd
 
                 if ($bFullLog)
                 {
-                    $strLine =~ s/^[0-9]{4}-[0-1][0-9]-[0-3][0-9] [0-2][0-9]:[0-6][0-9]:[0-6][0-9]\.[0-9]{3} T[0-9]{2}  //;
-                    $strLine = BackRestTestCommon_ExecuteRegAll($strLine);
+                    $strLine =~ s/^[0-9]{4}-[0-1][0-9]-[0-3][0-9] [0-2][0-9]:[0-6][0-9]:[0-6][0-9]\.[0-9]{3} T[0-9]{2} //;
 
-                    if ($strLine !~ /^ TEST/)
+                    if ($strLine !~ /^  TEST/ && $strLine =~ /^ /)
                     {
+                        $strLine =~ s/^                            //;
+                        $strLine =~ s/^ //;
+
+                        $strLine = BackRestTestCommon_ExecuteRegAll($strLine);
                         $strFullLog .= $strLine;
                     }
                 }

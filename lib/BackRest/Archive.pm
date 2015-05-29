@@ -385,15 +385,19 @@ sub pushProcess
         # Else the no-fork flag has been specified for testing
         else
         {
-            &log(INFO, 'No fork on archive local for TESTING');
+            &log(DEBUG, 'No fork on archive local for TESTING');
         }
 
         # Start the async archive push
-        &log(INFO, 'starting async archive-push');
+        &log(DEBUG, 'starting async archive-push');
     }
 
     # Create a lock file to make sure async archive-push does not run more than once
-    lockAcquire(operationGet());
+    if (!lockAcquire(operationGet(), false))
+    {
+        &log(DEBUG, 'another async archive-push process is already running - exiting');
+        return 0;
+    }
 
     # Open the log file
     log_file_set(optionGet(OPTION_REPO_PATH) . '/log/' . optionGet(OPTION_STANZA) . '-archive-async');
@@ -537,16 +541,22 @@ sub pushCheck
         {
             ini_load($oFile->path_get(PATH_BACKUP_ARCHIVE, ARCHIVE_INFO_FILE), \%oDbConfig);
 
+            my $strError = undef;
+
             if ($oDbConfig{database}{'version'} ne $strDbVersion)
             {
-                confess &log(ERROR, "WAL segment version ${strDbVersion} " .
-                             "does not match archive version $oDbConfig{database}{'version'}", ERROR_ARCHIVE_MISMATCH);
+                $strError = "WAL segment version ${strDbVersion} does not match archive version $oDbConfig{database}{'version'}";
             }
 
             if ($oDbConfig{database}{'system-id'} ne $ullDbSysId)
             {
-                confess &log(ERROR, "WAL segment system-id ${ullDbSysId} " .
-                             "does not match archive system-id $oDbConfig{database}{'system-id'}", ERROR_ARCHIVE_MISMATCH);
+                $strError = "WAL segment system-id ${ullDbSysId} does not match" .
+                            " archive system-id $oDbConfig{database}{'system-id'}";
+            }
+
+            if (defined($strError))
+            {
+                confess &log(ERROR, "${strError}\nHINT: are you archiving to the correct stanza?", ERROR_ARCHIVE_MISMATCH);
             }
         }
         # Else create the info file from the current WAL segment
@@ -575,8 +585,8 @@ sub pushCheck
             confess &log(ERROR, "WAL segment ${strWalSegment} already exists in the archive", ERROR_ARCHIVE_DUPLICATE);
         }
 
-        &log(WARN, "WAL segment ${strWalSegment} already exists in the archive with the same checksum" .
-                   " - this is valid in some recovery scenarios but may also indicate a problem");
+        &log(WARN, "WAL segment ${strWalSegment} already exists in the archive with the same checksum\n" .
+                   "HINT: this is valid in some recovery scenarios but may also indicate a problem");
 
         return undef;
     }
