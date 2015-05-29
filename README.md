@@ -21,6 +21,8 @@ Primary PgBackRest features:
 
 Instead of relying on traditional backup tools like tar and rsync, PgBackRest implements all backup features internally and uses a custom protocol for communicating with remote systems.  Removing reliance on tar and rsync allows for better solutions to database-specific backup issues.  The custom remote protocol limits the types of connections that are required to perform a backup which increases security.
 
+PgBackRest uses the gitflow model of development.  This means that the master branch contains only the release history, i.e. each commit represents a single release and release tags are always from the master branch.  The dev branch contains a single commit for each feature or fix and more accurately depicts the development history.  Actual development is done on feature (dev_*) branches and squashed into dev after regression tests have passed.  In this model dev is considered stable and can be released at any time.  As such, the dev branch does not have any special version modifiers.
+
 ## Install
 
 PgBackRest is written entirely in Perl and uses some non-standard modules that must be installed from CPAN.
@@ -50,17 +52,13 @@ wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-
 sudo apt-get update
 
 apt-get install postgresql-9.3
-apt-get install postgresql-server-dev-9.3
 ```
 * Install required Perl modules:
 ```
-cpanm JSON::PP
 cpanm Net::OpenSSH
 cpanm IPC::System::Simple
-cpanm Digest::SHA
-cpanm Compress::Zlib
-cpanm threads (update this package)
-cpanm Thread::Queue (update this package)
+cpanm threads (update this package when thread-max > 1)
+cpanm Thread::Queue (update this package when thread-max > 1)
 ```
 * Install PgBackRest
 
@@ -69,6 +67,13 @@ PgBackRest can be installed by downloading the most recent release:
 https://github.com/pgmasters/backrest/releases
 
 PgBackRest can be installed anywhere but it's best (though not required) to install it in the same location on all systems.
+
+* Install PostgreSQL development libraries and additional Perl modules for regression tests:
+```
+apt-get install postgresql-server-dev-9.4
+cpanm DBI
+cpanm DBD:Pg
+```
 
 ## Operation
 
@@ -685,7 +690,7 @@ example: retention-diff=3
 
 ##### `retention-archive-type` key
 
-Type of backup to use for archive retention (full or differential).  If set to full, then PgBackRest will keep archive logs for the number of full backups defined by `archive-retention`.  If set to differential, then PgBackRest will keep archive logs for the number of differential backups defined by `archive-retention`.
+Type of backup to use for archive retention (full or differential).  If set to full, then PgBackRest will keep archive logs for the number of full backups defined by `retention-archive`.  If set to differential, then PgBackRest will keep archive logs for the number of differential backups defined by `retention-archive`.
 
 If not defined then archive logs will be kept indefinitely.  In general it is not useful to keep archive logs that are older than the oldest backup, but there may be reasons for doing so.
 ```
@@ -734,7 +739,19 @@ example: db-path=/data/db
 
 ### v0.75: IN DEVELOPMENT: enterprise features: monitoring, throttling, retention period
 
-* Fixed an issue where archive-copy would fail on an incr/diff backup when hardlink=n.  In this case the pg_xlog path does not already exist and must be created.
+* Fixed an issue where archive-copy would fail on an incr/diff backup when hardlink=n.  In this case the pg_xlog path does not already exist and must be created. Reported by Michael Renner
+
+* Allow duplicate WAL segments to be archived when the checksum matches.  This is necessary for some recovery scenarios.
+
+* Allow comments/disabling in pg_backrest.conf using #.  Suggested by Michael Renner.
+
+* Better logging before pg_start_backup() to make it clear when the backup is waiting on a checkpoint.  Suggested by Michael Renner.
+
+* Various command behavior, help and logging fixes.  Reported by Michael Renner.
+
+* Fixed an issue in async archiving where archive-push was not properly returning 0 when archive-max-mb was reached and moved the async check after transfer to avoid having to remove the stop file twice.  Also added unit tests for this case and improved error messages to make it clearer to the user what went wrong.  Reported by Michael Renner.
+
+* Replaced JSON module with JSON::PP which ships with core Perl.
 
 ### v0.65: Improved resume and restore logging, compact restores
 
